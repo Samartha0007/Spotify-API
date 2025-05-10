@@ -1,22 +1,142 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>My Spotify Stats</title>
+  <title>My Personal Spotify Stats</title>
+  <style>
+    body {
+      font-family: 'Spotify Circular', sans-serif;
+      background: #191414;
+      color: white;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .stat-box {
+      background: #282828;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      margin: 5px 0;
+      background: #333;
+      border-radius: 5px;
+    }
+    .item img {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin-right: 15px;
+    }
+    .rank {
+      font-weight: bold;
+      margin-right: 15px;
+      color: #1DB954;
+    }
+  </style>
 </head>
 <body>
-  <button id="login-btn">Login with Spotify</button>
+  <h1>My Spotify Stats</h1>
   
-  <div id="stats">
-    <h2>Now Playing</h2>
-    <div id="current-track">Not playing</div>
-    
-    <h2>Top Artists (Last 4 Weeks)</h2>
-    <div id="top-artists"></div>
-    
-    <h2>Top Tracks (Last 4 Weeks)</h2>
+  <div class="stat-box">
+    <h2>🎵 Top Tracks (Last 4 Weeks)</h2>
     <div id="top-tracks"></div>
   </div>
+  
+  <div class="stat-box">
+    <h2>🎤 Top Artists (Last 4 Weeks)</h2>
+    <div id="top-artists"></div>
+  </div>
 
-  <script src="spotify.js"></script>
+  <script>
+    // ===== CONFIG ===== //
+    const CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID';
+    const REDIRECT_URI = window.location.href.includes('localhost') 
+      ? 'http://localhost:3000/callback.html' 
+      : 'YOUR_LIVE_URL/callback.html';
+    const SCOPE = 'user-top-read';
+
+    // ===== AUTH ===== //
+    function login() {
+      window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${SCOPE}&response_type=token`;
+    }
+
+    // ===== DATA FETCHING ===== //
+    async function fetchSpotifyData() {
+      const token = localStorage.getItem('spotify_token');
+      if (!token) return login();
+
+      try {
+        // Get Top Tracks
+        const tracksRes = await fetch('https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=10', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const tracks = await tracksRes.json();
+        
+        // Get Top Artists
+        const artistsRes = await fetch('https://api.spotify.com/v1/me/top/artists?time_range=short_term&limit=10', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const artists = await artistsRes.json();
+
+        displayData(tracks.items, artists.items);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        localStorage.removeItem('spotify_token');
+        login();
+      }
+    }
+
+    // ===== DISPLAY DATA ===== //
+    function displayData(tracks, artists) {
+      // Display Tracks
+      document.getElementById('top-tracks').innerHTML = tracks.map((track, i) => `
+        <div class="item">
+          <div class="rank">${i + 1}</div>
+          <img src="${track.album.images[0].url}" alt="${track.name}">
+          <div>
+            <strong>${track.name}</strong><br>
+            ${track.artists.map(a => a.name).join(', ')}
+          </div>
+        </div>
+      `).join('');
+
+      // Display Artists
+      document.getElementById('top-artists').innerHTML = artists.map((artist, i) => `
+        <div class="item">
+          <div class="rank">${i + 1}</div>
+          <img src="${artist.images[0].url}" alt="${artist.name}">
+          <div>
+            <strong>${artist.name}</strong><br>
+            ${artist.genres.slice(0, 2).join(', ')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ===== INIT ===== //
+    function init() {
+      // Check for token in URL (after redirect)
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const token = params.get('access_token');
+      
+      if (token) {
+        localStorage.setItem('spotify_token', token);
+        window.history.pushState({}, document.title, window.location.pathname);
+      }
+
+      if (localStorage.getItem('spotify_token')) {
+        fetchSpotifyData();
+      } else {
+        login();
+      }
+    }
+
+    init();
+  </script>
 </body>
 </html>
