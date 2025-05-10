@@ -1,18 +1,13 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Spotify Callback</title>
-</head>
 <body>
   <script>
-    // Extract token from URL hash
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get('access_token');
-    
-    // Store token and redirect back
-    localStorage.setItem('spotify_access_token', accessToken);
-    window.location = "spotify.html";
+    // Close after auth
+    window.opener.postMessage({
+      type: 'spotify-auth',
+      token: new URLSearchParams(window.location.hash.substring(1)).get('access_token')
+    }, '*');
+    window.close();
   </script>
 </body>
 </html>
